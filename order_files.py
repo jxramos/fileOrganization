@@ -32,6 +32,11 @@ def main(args):
     Moves all files directly located beneath the given directory argument and
     """
 
+    # Validate directory
+    if not os.path.exists(args.dir):
+        print("ERROR: given directory does not exist: {}".format(args.dir))
+        return
+
     # Get all files under given directory
     files = glob.glob( os.path.join(args.dir, "*") )
     if not args.is_sort_dirs:
