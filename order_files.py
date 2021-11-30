@@ -8,6 +8,7 @@ from datetime import datetime
 
 # THIRD PARTY
 import pandas
+from PIL import Image, ExifTags
 #endregion
 
 
@@ -62,6 +63,22 @@ def main(args):
         mobile_files = df['file_name'].loc[is_android_media]
         actual_create_days = mobile_files.apply(lambda d: f"{d[4:8]}-{d[8:10]}-{d[10:12]}")
         df.loc[is_android_media,'file_days'] = actual_create_days
+
+    #------------------------------------------------------------------------------
+    # Extract image exif data to lookup date taken
+    # eg iphone's don't timestamp filenames unfortunately)
+    is_jpeg = df['file_name'].str.match(r".*\.(jpg|jpeg|JPG|JPEG|PNG|png)$")
+    for idx_f, fp in df.loc[is_jpeg, 'file_path'].iteritems():
+        with Image.open(fp) as img:
+            exif = { ExifTags.TAGS[k]: v
+                    for k, v in img.getexif().items()
+                    if k in ExifTags.TAGS
+                    }
+            if 'DateTimeOriginal' not in exif:
+                print("No date time exif data in: " + fp)
+                continue
+            original_date = exif['DateTimeOriginal'] # eg '2018:03:01 15:49:55'
+            df.loc[idx_f, 'file_days'] = original_date[0:10].replace(":","-")
 
     #------------------------------------------------------------------------------
     # Move all files according to their dates
