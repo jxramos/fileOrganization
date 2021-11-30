@@ -20,6 +20,8 @@ def parse_args():
     parser = argparse.ArgumentParser(description=help_message)
     parser.add_argument('-d', '--dir', default="", help="A path with files to be organized")
     parser.add_argument('-t', '--type', default='create', help='Date type to group by', nargs='?', choices=('create', 'modified'), )
+    parser.add_argument("-s", "--sort_dirs", action='store_true', dest="is_sort_dirs",
+                        help='Flag to enable the inclusion of directories to the sorting and organizing process.')
 
     return parser.parse_args()
 
@@ -31,6 +33,9 @@ def main(args):
 
     # Get all files under given directory
     files = glob.glob( os.path.join(args.dir, "*") )
+    if not args.is_sort_dirs:
+        # constrain to files alone
+        files = [f for f in files if not os.path.isdir(f)]
     file_names = [os.path.basename(f) for f in files]
 
     # Lookup corresponding file attribute times for these files
