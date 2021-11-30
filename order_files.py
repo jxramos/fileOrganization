@@ -8,7 +8,7 @@ from datetime import datetime
 
 # THIRD PARTY
 import pandas
-from PIL import Image, ExifTags
+import exifread
 #endregion
 
 
@@ -67,17 +67,14 @@ def main(args):
     #------------------------------------------------------------------------------
     # Extract image exif data to lookup date taken
     # eg iphone's don't timestamp filenames unfortunately)
-    is_jpeg = df['file_name'].str.match(r".*\.(jpg|jpeg|JPG|JPEG|PNG|png)$")
+    is_jpeg = df['file_name'].str.match(r".*\.(jpg|jpeg|JPG|JPEG|PNG|png|MOV|heic|HEIC|THM)$")
     for idx_f, fp in df.loc[is_jpeg, 'file_path'].iteritems():
-        with Image.open(fp) as img:
-            exif = { ExifTags.TAGS[k]: v
-                    for k, v in img.getexif().items()
-                    if k in ExifTags.TAGS
-                    }
-            if 'DateTimeOriginal' not in exif:
-                print("No date time exif data in: " + fp)
+        with open(fp, 'rb') as img_file:
+            tags = exifread.process_file(img_file, details=False, stop_tag='DateTimeOriginal')
+            if 'EXIF DateTimeOriginal' not in tags:
+                print("No DateTimeOriginal exif data in: " + fp)
                 continue
-            original_date = exif['DateTimeOriginal'] # eg '2018:03:01 15:49:55'
+            original_date = str(tags['EXIF DateTimeOriginal']) # eg '2018:03:01 15:49:55'
             df.loc[idx_f, 'file_days'] = original_date[0:10].replace(":","-")
 
     #------------------------------------------------------------------------------
