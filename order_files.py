@@ -31,6 +31,7 @@ def main(args):
 
     # Get all files under given directory
     files = glob.glob( os.path.join(args.dir, "*") )
+    file_names = [os.path.basename(f) for f in files]
 
     # Lookup corresponding file attribute times for these files
     file_stats = [ os.stat(f) for f in files ]
@@ -40,8 +41,25 @@ def main(args):
         file_days = [ datetime.fromtimestamp(s.st_mtime).strftime("%Y-%m-%d") for s in file_stats ]
 
     # Convert to DataFrame
-    df = pandas.DataFrame( {'file_path':files, 'file_days': file_days } )
+    df = pandas.DataFrame( {'file_path':files, 'file_name':file_names, 'file_days': file_days } )
 
+    #------------------------------------------------------------------------------
+    # Parse out reliable creation date from mobile image filename timestamps
+    #   NOTE moving files off MTP devices yields misleading creation date. Uses time of move
+    #   not literal creation date unfortunately.
+
+    # ANDROID MEDIA FILES
+    # Test if media files (images/videos, eg IMG_20190902_170352.jpg)
+    is_android_media = df['file_name'].str.match("(IMG|VID)_[0-9]{8}_[0-9]{6}_")
+
+    # Reconstruct creation date from timestamp in filename
+    if is_android_media.any():
+        mobile_files = df['file_name'].loc[is_android_media]
+        actual_create_days = mobile_files.apply(lambda d: f"{d[4:8]}-{d[8:10]}-{d[10:12]}")
+        df.loc[is_android_media,'file_days'] = actual_create_days
+
+    #------------------------------------------------------------------------------
+    # Move all files according to their dates
     for group_name, df_group in df.groupby('file_days'):
         # Make the subfolder for this file's day
         group_dir = os.path.join(args.dir, group_name + ' ()')
