@@ -3,8 +3,10 @@
 import argparse
 import os
 import glob
+import re
 import shutil
 from datetime import datetime
+import dateutil
 
 # THIRD PARTY
 import pandas
@@ -72,15 +74,25 @@ def main(args):
     #------------------------------------------------------------------------------
     # Extract image exif data to lookup date taken
     # eg iphone's don't timestamp filenames unfortunately)
-    is_jpeg = df['file_name'].str.match(r".*\.(jpg|jpeg|JPG|JPEG|PNG|png|MOV|heic|HEIC|THM)$")
+    is_jpeg = df['file_name'].str.match(r".*\.(jpg|jpeg|JPG|JPEG|PNG|png|heic|HEIC|THM)$")
     for idx_f, fp in df.loc[is_jpeg, 'file_path'].iteritems():
         with open(fp, 'rb') as img_file:
             tags = exifread.process_file(img_file, details=False, stop_tag='DateTimeOriginal')
             if 'EXIF DateTimeOriginal' not in tags:
                 print("No DateTimeOriginal exif data in: " + fp)
                 continue
-            original_date = str(tags['EXIF DateTimeOriginal']) # eg '2018:03:01 15:49:55'
-            df.loc[idx_f, 'file_days'] = original_date[0:10].replace(":","-")
+
+            # normalize date (different cameras use different date formats unfortunately)
+            original_date = str(tags['EXIF DateTimeOriginal'])
+            # XXX phone 2018:03:01 15:49:55 (dateutil doesn't recognize this)
+            if re.match(r"[0-9]{4}:[0-9]{2}:[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}", original_date):
+                original_date = original_date[0:10].replace(":", "-")
+            # LG Phone: 02.22.2013 15:22:07
+            elif re.match(r"[0-9]{2}.[0-9]{2}.[0-9]{4} [0-9]{2}:[0-9]{2}:[0-9]{2}", original_date):
+                original_date = f"{original_date[6:10]}-{original_date[0:2]}-{original_date[3:5]}"
+            else:
+                raise ValueError("ERROR--unrecognized date time format: " +  original_date)
+            df.loc[idx_f, 'file_days'] = original_date
 
     #------------------------------------------------------------------------------
     # Move all files according to their dates
